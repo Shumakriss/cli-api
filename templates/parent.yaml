@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Top-level stack for deploying child stacks
+
+Parameters:
+  CodeBucketName:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: "/buckets/code/name"
+
+Resources:
+
+  Role:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: '*'
+                Resource: '*'
+
+  Function:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: "org.shumakriss.api.Handler::handleRequest"
+      Role: !GetAtt Role.Arn
+      Code:
+        S3Bucket: !Ref CodeBucketName
+        S3Key: "cli-api/target/cli-api-1.0-SNAPSHOT.jar"
+      MemorySize: 128
+      Runtime: java11
+      Timeout: 3
+
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: Lambda Proxy
+      Description: Lambda proxy using quick create
+      ProtocolType: HTTP
+      Target: !GetAtt Function.Arn
+
+  Permission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref Function
+      Principal: apigateway.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*"
+
+  ApiRoot:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: Parameter pointing to root URL of the API
+      Name: !Sub "/apis/cli/urls/root"
+      Type: String
+      Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+
+  FunctionName:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: The name of the Lambda function handling requests
+      Name: !Sub "/apis/cli/lambda/name"
+      Type: String
+      Value: !Ref Function

@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Stack for managing a shared bucket
+
+Parameters:
+  BucketAlias:
+    Type: String
+    Default: "code"
+
+Resources:
+
+  Bucket:
+    Type: AWS::S3::Bucket
+
+  NameParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: Parameter pointing to the bucket name
+      Name: !Sub "/buckets/${BucketAlias}/name"
+      Type: String
+      Value: !Ref Bucket
+
+  ArnParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: Parameter pointing to the bucket ARN
+      Name: !Sub "/buckets/${BucketAlias}/arn"
+      Type: String
+      Value: !GetAtt Bucket.Arn
+
+Outputs:
+  Name:
+    Description: The bucket name
+    Value: !Ref Bucket
+    Export:
+      Name: !Sub "${AWS::StackName}-bucket-name"
+
+  Arn:
+    Description: The bucket ARN
+    Value: !GetAtt Bucket.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-bucket-arn"
+
+  NameParameter:
+    Description: An SSM parameter key where the bucket NAME can be discovered
+    Value: !Ref NameParameter
+    Export:
+      Name: !Sub "${AWS::StackName}-bucket-ssm-name"
+
+  ArnParameter:
+    Description: An SSM parameter key where the bucket ARN can be discovered
+    Value: !Ref ArnParameter
+    Export:
+      Name: !Sub "${AWS::StackName}-bucket-ssm-arn"
